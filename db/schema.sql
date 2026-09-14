@@ -22,6 +22,7 @@ create table if not exists tasks (
   status text not null default 'active' check (status in ('active', 'done', 'archived')),
   kind text not null default 'self' check (kind in ('self', 'delegated')),
   completed_at date,
+  link text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );

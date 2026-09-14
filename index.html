@@ -16,7 +16,7 @@
   <div class="login-card">
     <div class="login-mascot">🐻🌸</div>
     <h1>我的專案手帳</h1>
-    <p class="subtitle">得我一個先入到嚟㗎～</p>
+    <p class="subtitle">僅限本人登入使用</p>
     <form id="login-form">
       <label>📧 Email
         <input type="email" id="login-email" required placeholder="you@example.com" />
@@ -35,16 +35,16 @@
   <header class="app-header">
     <div class="brand">🐻 我的專案手帳</div>
     <div class="header-actions">
-      <button id="project-toggle-btn" class="btn btn-ghost">🗂️ Project</button>
+      <button id="project-toggle-btn" class="btn btn-ghost">🗂️ 專案</button>
       <button id="logout-btn" class="btn btn-ghost">🚪 登出</button>
       <div id="project-panel" class="project-panel hidden">
-        <h2>🗂️ 我嘅 Project</h2>
+        <h2>🗂️ 我的專案分類</h2>
         <div id="project-list" class="project-list"></div>
         <form id="project-form" class="project-form">
           <input type="text" id="project-icon" maxlength="2" placeholder="🐣" value="📁" />
-          <input type="text" id="project-name" placeholder="Project 名稱" required />
+          <input type="text" id="project-name" placeholder="專案名稱" required />
           <input type="color" id="project-color" value="#ffd6e8" />
-          <button type="submit" class="btn btn-secondary">➕ 新增 Project</button>
+          <button type="submit" class="btn btn-secondary">➕ 新增專案</button>
         </form>
       </div>
     </div>
@@ -55,16 +55,17 @@
     <section class="card">
       <h2>📝 新增待辦</h2>
       <form id="task-form" class="task-form">
-        <input type="text" id="task-title" placeholder="🎯 要做咩事？" required />
+        <input type="text" id="task-title" placeholder="🎯 事項內容" required />
         <select id="task-project">
           <option value="">🗂️ 未分類</option>
         </select>
         <select id="task-kind">
-          <option value="self">📌 自己要跟</option>
-          <option value="delegated">📤 交咗畀人</option>
+          <option value="self">📌 自行跟進</option>
+          <option value="delegated">📤 已轉交他人</option>
         </select>
-        <input type="date" id="task-date" title="follow-up 日期" />
-        <textarea id="task-notes" placeholder="🖊️ 備註（可留空）" rows="2"></textarea>
+        <input type="date" id="task-date" title="跟進日期" />
+        <input type="url" id="task-link" placeholder="🔗 相關網頁連結（選填）" />
+        <textarea id="task-notes" placeholder="🖊️ 備註（選填）" rows="2"></textarea>
         <button type="submit" class="btn btn-primary">➕ 加入清單</button>
       </form>
     </section>
@@ -77,7 +78,7 @@
         <button class="tab-btn" data-status="archived">🗄️ 封存</button>
       </div>
       <div id="task-list" class="task-list">
-        <p class="empty-hint">載入緊呀…⏳</p>
+        <p class="empty-hint">載入中…⏳</p>
       </div>
     </section>
   </main>

@@ -14,6 +14,7 @@ const taskTitleInput = document.getElementById("task-title");
 const taskProjectSelect = document.getElementById("task-project");
 const taskKindSelect = document.getElementById("task-kind");
 const taskDateInput = document.getElementById("task-date");
+const taskLinkInput = document.getElementById("task-link");
 const taskNotesInput = document.getElementById("task-notes");
 
 const projectForm = document.getElementById("project-form");
@@ -36,6 +37,17 @@ function todayStr() {
 
 function dateOnly(isoTimestamp) {
   return isoTimestamp ? isoTimestamp.slice(0, 10) : "";
+}
+
+function safeLinkHref(url) {
+  if (!url) return null;
+  try {
+    const u = new URL(url);
+    if (u.protocol === "http:" || u.protocol === "https:") return u.href;
+  } catch (_) {
+    // 不是有效網址，不顯示連結
+  }
+  return null;
 }
 
 // ---------- Auth ----------
@@ -117,7 +129,7 @@ function renderProjectOptions() {
 function renderProjectPills() {
   projectListEl.innerHTML = "";
   if (projects.length === 0) {
-    projectListEl.innerHTML = '<p class="empty-hint">仲未有 project，落面加一個先啦～</p>';
+    projectListEl.innerHTML = '<p class="empty-hint">尚未建立專案，請在下方新增一個。</p>';
     return;
   }
   for (const p of projects) {
@@ -137,7 +149,7 @@ projectForm.addEventListener("submit", async (e) => {
   if (!name) return;
   const { error } = await supabase.from("projects").insert({ icon, name, color });
   if (error) {
-    alert("新增 project 失敗：" + error.message);
+    alert("新增專案失敗：" + error.message);
     return;
   }
   projectForm.reset();
@@ -148,7 +160,7 @@ projectForm.addEventListener("submit", async (e) => {
 
 // ---------- Tasks ----------
 async function loadTasks() {
-  taskListEl.innerHTML = '<p class="empty-hint">載入緊呀…⏳</p>';
+  taskListEl.innerHTML = '<p class="empty-hint">載入中…⏳</p>';
   const { data, error } = await supabase
     .from("tasks")
     .select("*, projects(icon, name, color)")
@@ -163,7 +175,7 @@ async function loadTasks() {
 
 function renderTasks(tasks) {
   if (tasks.length === 0) {
-    taskListEl.innerHTML = '<p class="empty-hint">呢度冇嘢喎 🌸 唞下啦～</p>';
+    taskListEl.innerHTML = '<p class="empty-hint">目前沒有項目 🌸</p>';
     return;
   }
   const today = todayStr();
@@ -178,8 +190,8 @@ function renderTasks(tasks) {
     }
     badges.push(
       t.kind === "delegated"
-        ? `<span class="badge badge-delegated">📤 交咗畀人</span>`
-        : `<span class="badge badge-self">📌 自己跟</span>`
+        ? `<span class="badge badge-delegated">📤 已轉交他人</span>`
+        : `<span class="badge badge-self">📌 自行跟進</span>`
     );
     if (t.follow_up_date) {
       if (t.follow_up_date === today && t.status === "active") {
@@ -196,6 +208,12 @@ function renderTasks(tasks) {
     }
 
     const actions = [];
+    const linkHref = safeLinkHref(t.link);
+    if (linkHref) {
+      actions.push(
+        `<a class="btn btn-icon" href="${escapeHtml(linkHref)}" target="_blank" rel="noopener noreferrer">🔗 開啟連結</a>`
+      );
+    }
     if (t.status === "active") {
       actions.push(`<button class="btn btn-icon" data-action="done" data-id="${t.id}">✅ 完成</button>`);
       actions.push(`<button class="btn btn-icon" data-action="archive" data-id="${t.id}">🗄️ 封存</button>`);
@@ -222,7 +240,7 @@ function renderTasks(tasks) {
 function escapeHtml(str) {
   const div = document.createElement("div");
   div.textContent = str;
-  return div.innerHTML;
+  return div.innerHTML.replace(/"/g, "&quot;");
 }
 
 taskListEl.addEventListener("click", async (e) => {
@@ -236,7 +254,7 @@ taskListEl.addEventListener("click", async (e) => {
   else if (action === "reopen") update = { status: "active", completed_at: null };
 
   if (action === "delete") {
-    if (!confirm("確定刪除呢個 task？呢個動作冇得返轉頭㗎～")) return;
+    if (!confirm("確定要刪除這個項目嗎？此操作無法復原。")) return;
     const { error } = await supabase.from("tasks").delete().eq("id", id);
     if (error) alert("刪除失敗：" + error.message);
   } else if (update) {
@@ -255,6 +273,7 @@ taskForm.addEventListener("submit", async (e) => {
     project_id: taskProjectSelect.value || null,
     kind: taskKindSelect.value,
     follow_up_date: taskDateInput.value || null,
+    link: taskLinkInput.value.trim() || null,
     notes: taskNotesInput.value.trim() || null,
   };
   const { error } = await supabase.from("tasks").insert(payload);
