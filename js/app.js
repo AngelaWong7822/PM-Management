@@ -302,6 +302,9 @@ function renderTasks(tasks) {
         badges.push(`<span class="badge badge-date">📅 ${t.follow_up_date}</span>`);
       }
     }
+    if (t.notify_daily) {
+      badges.push(`<span class="badge badge-pinned">📌 持續提醒</span>`);
+    }
     badges.push(`<span class="badge badge-start">🌱 開始 ${dateOnly(t.created_at)}</span>`);
     if (t.status === "done") {
       const doneDate = t.completed_at || dateOnly(t.updated_at);
@@ -318,6 +321,11 @@ function renderTasks(tasks) {
     }
     if (t.status === "active") {
       actions.push(`<button class="btn btn-icon" data-action="done" data-id="${t.id}">✅ 完成</button>`);
+      actions.push(
+        `<button class="btn btn-icon" data-action="toggle-notify" data-id="${t.id}">${
+          t.notify_daily ? "🔕 取消提醒" : "🔔 持續提醒"
+        }</button>`
+      );
       extraActions.push(`<button class="btn btn-icon" data-action="archive" data-id="${t.id}">🗄️ 封存</button>`);
     } else if (t.status === "done") {
       actions.push(`<button class="btn btn-icon" data-action="reopen" data-id="${t.id}">↩️ 重開</button>`);
@@ -398,6 +406,14 @@ taskListEl.addEventListener("click", async (e) => {
     if (expandedMenuIds.has(id)) expandedMenuIds.delete(id);
     else expandedMenuIds.add(id);
     renderTasks(tasksCache);
+    return;
+  }
+
+  if (action === "toggle-notify") {
+    const task = tasksCache.find((x) => x.id === id);
+    const { error } = await supabase.from("tasks").update({ notify_daily: !task?.notify_daily }).eq("id", id);
+    if (error) alert("更新失敗：" + error.message);
+    await loadTasks();
     return;
   }
 

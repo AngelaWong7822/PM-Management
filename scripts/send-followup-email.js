@@ -33,9 +33,9 @@ async function main() {
 
   const { data: tasks, error } = await supabase
     .from("tasks")
-    .select("title, notes, follow_up_date, projects(icon, name)")
+    .select("title, notes, follow_up_date, notify_daily, projects(icon, name)")
     .eq("status", "active")
-    .lte("follow_up_date", today)
+    .or(`follow_up_date.lte.${today},notify_daily.eq.true`)
     .order("follow_up_date", { ascending: true });
 
   if (error) {
@@ -44,15 +44,18 @@ async function main() {
   }
 
   const dueToday = (tasks || []).filter((t) => t.follow_up_date === today);
-  const overdue = (tasks || []).filter((t) => t.follow_up_date < today);
+  const overdue = (tasks || []).filter((t) => t.follow_up_date && t.follow_up_date < today);
+  const pinned = (tasks || []).filter(
+    (t) => t.notify_daily && (!t.follow_up_date || t.follow_up_date > today)
+  );
 
-  if (dueToday.length === 0 && overdue.length === 0) {
+  if (dueToday.length === 0 && overdue.length === 0 && pinned.length === 0) {
     console.log("No follow-ups due today, skipping email.");
     return;
   }
 
-  const html = renderEmailHtml(today, dueToday, overdue);
-  const text = renderEmailText(today, dueToday, overdue);
+  const html = renderEmailHtml(today, dueToday, overdue, pinned);
+  const text = renderEmailText(today, dueToday, overdue, pinned);
 
   const transporter = nodemailer.createTransport({
     service: "gmail",
@@ -67,7 +70,9 @@ async function main() {
     html,
   });
 
-  console.log(`Email sent to ${RECIPIENT_EMAIL} with ${dueToday.length} due today, ${overdue.length} overdue.`);
+  console.log(
+    `Email sent to ${RECIPIENT_EMAIL} with ${dueToday.length} due today, ${overdue.length} overdue, ${pinned.length} pinned.`
+  );
 }
 
 function line(t) {
@@ -76,7 +81,7 @@ function line(t) {
   return `${tag}：${t.title}${notes}`;
 }
 
-function renderEmailText(today, dueToday, overdue) {
+function renderEmailText(today, dueToday, overdue, pinned) {
   const parts = [`今日日期：${today}`, ""];
   if (dueToday.length) {
     parts.push("🔥 今日要 Follow-up：");
@@ -86,11 +91,16 @@ function renderEmailText(today, dueToday, overdue) {
   if (overdue.length) {
     parts.push("⏰ 逾期未跟：");
     overdue.forEach((t) => parts.push(" - " + line(t)));
+    parts.push("");
+  }
+  if (pinned.length) {
+    parts.push("📌 持續提醒：");
+    pinned.forEach((t) => parts.push(" - " + line(t)));
   }
   return parts.join("\n");
 }
 
-function renderEmailHtml(today, dueToday, overdue) {
+function renderEmailHtml(today, dueToday, overdue, pinned) {
   const section = (title, items) =>
     items.length
       ? `<h3>${title}</h3><ul>${items
@@ -109,6 +119,7 @@ function renderEmailHtml(today, dueToday, overdue) {
       <p style="color:#8a7a86;">${today}</p>
       ${section("🔥 今日要 Follow-up", dueToday)}
       ${section("⏰ 逾期未跟", overdue)}
+      ${section("📌 持續提醒", pinned)}
     </div>
   `;
 }
