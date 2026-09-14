@@ -295,8 +295,9 @@ function renderTasks(tasks) {
       }
     }
     badges.push(`<span class="badge badge-start">🌱 開始 ${dateOnly(t.created_at)}</span>`);
-    if (t.status === "done" && t.completed_at) {
-      badges.push(`<span class="badge badge-done-date">✅ 完成 ${t.completed_at}</span>`);
+    if (t.status === "done") {
+      const doneDate = t.completed_at || dateOnly(t.updated_at);
+      badges.push(`<span class="badge badge-done-date">✅ 完成 ${doneDate}</span>`);
     }
 
     const actions = [];
