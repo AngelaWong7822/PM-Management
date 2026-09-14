@@ -261,6 +261,10 @@ function renderTasks(tasks) {
   for (const t of tasks) {
     const card = document.createElement("div");
     card.className = "task-card";
+    if (t.projects) {
+      card.style.borderLeftWidth = "5px";
+      card.style.borderLeftColor = t.projects.color;
+    }
 
     if (editingTaskId === t.id) {
       card.innerHTML = renderEditForm(t);
@@ -270,7 +274,11 @@ function renderTasks(tasks) {
 
     const badges = [];
     if (t.projects) {
-      badges.push(`<span class="badge badge-project">${t.projects.icon} ${t.projects.name}</span>`);
+      badges.push(
+        `<span class="badge badge-project" style="background:${escapeHtml(t.projects.color)}">${escapeHtml(
+          t.projects.icon
+        )} ${escapeHtml(t.projects.name)}</span>`
+      );
     }
     badges.push(
       t.kind === "delegated"
