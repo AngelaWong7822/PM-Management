@@ -12,6 +12,7 @@ const logoutBtn = document.getElementById("logout-btn");
 const taskForm = document.getElementById("task-form");
 const taskTitleInput = document.getElementById("task-title");
 const taskProjectSelect = document.getElementById("task-project");
+const taskKindSelect = document.getElementById("task-kind");
 const taskDateInput = document.getElementById("task-date");
 const taskNotesInput = document.getElementById("task-notes");
 
@@ -31,6 +32,10 @@ let currentStatus = "active";
 
 function todayStr() {
   return new Date().toLocaleDateString("sv-SE"); // yyyy-mm-dd, 用本地時區
+}
+
+function dateOnly(isoTimestamp) {
+  return isoTimestamp ? isoTimestamp.slice(0, 10) : "";
 }
 
 // ---------- Auth ----------
@@ -171,6 +176,11 @@ function renderTasks(tasks) {
     if (t.projects) {
       badges.push(`<span class="badge badge-project">${t.projects.icon} ${t.projects.name}</span>`);
     }
+    badges.push(
+      t.kind === "delegated"
+        ? `<span class="badge badge-delegated">📤 交咗畀人</span>`
+        : `<span class="badge badge-self">📌 自己跟</span>`
+    );
     if (t.follow_up_date) {
       if (t.follow_up_date === today && t.status === "active") {
         badges.push(`<span class="badge badge-today">🔥 今日</span>`);
@@ -179,6 +189,10 @@ function renderTasks(tasks) {
       } else {
         badges.push(`<span class="badge badge-date">📅 ${t.follow_up_date}</span>`);
       }
+    }
+    badges.push(`<span class="badge badge-start">🌱 開始 ${dateOnly(t.created_at)}</span>`);
+    if (t.status === "done" && t.completed_at) {
+      badges.push(`<span class="badge badge-done-date">✅ 完成 ${t.completed_at}</span>`);
     }
 
     const actions = [];
@@ -217,9 +231,9 @@ taskListEl.addEventListener("click", async (e) => {
   const id = btn.dataset.id;
   const action = btn.dataset.action;
   let update = null;
-  if (action === "done") update = { status: "done" };
+  if (action === "done") update = { status: "done", completed_at: todayStr() };
   else if (action === "archive") update = { status: "archived" };
-  else if (action === "reopen") update = { status: "active" };
+  else if (action === "reopen") update = { status: "active", completed_at: null };
 
   if (action === "delete") {
     if (!confirm("確定刪除呢個 task？呢個動作冇得返轉頭㗎～")) return;
@@ -239,6 +253,7 @@ taskForm.addEventListener("submit", async (e) => {
   const payload = {
     title,
     project_id: taskProjectSelect.value || null,
+    kind: taskKindSelect.value,
     follow_up_date: taskDateInput.value || null,
     notes: taskNotesInput.value.trim() || null,
   };

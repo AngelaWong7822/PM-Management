@@ -228,6 +228,10 @@ textarea { resize: vertical; }
 .badge-today { background: #ffe0b3; color: #7a4a00; }
 .badge-overdue { background: #ffd0d6; color: #8a2e3a; }
 .badge-date { background: #eef; color: #445; }
+.badge-self { background: #d3f8e8; color: #1f6b4c; }
+.badge-delegated { background: #ffe4c4; color: #8a5a1e; }
+.badge-start { background: #f2eef5; color: #7a6a86; }
+.badge-done-date { background: #d8f5da; color: #2e6b32; }
 
 .task-notes { font-size: 12px; color: var(--ink-soft); white-space: pre-wrap; }
 

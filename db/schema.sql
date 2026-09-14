@@ -20,6 +20,8 @@ create table if not exists tasks (
   notes text,
   follow_up_date date,
   status text not null default 'active' check (status in ('active', 'done', 'archived')),
+  kind text not null default 'self' check (kind in ('self', 'delegated')),
+  completed_at date,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
