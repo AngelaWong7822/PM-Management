@@ -3,6 +3,9 @@ import { SUPABASE_URL, SUPABASE_ANON_KEY } from "./config.js";
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
+const ATTACHMENT_BUCKET = "task-attachments";
+const MAX_ATTACHMENT_SIZE = 20 * 1024 * 1024; // 20MB
+
 const loginScreen = document.getElementById("login-screen");
 const appScreen = document.getElementById("app-screen");
 const loginForm = document.getElementById("login-form");
@@ -32,6 +35,7 @@ let projects = [];
 let currentStatus = "active";
 let tasksCache = [];
 let editingTaskId = null;
+let currentUserId = null;
 
 function todayStr() {
   return new Date().toLocaleDateString("sv-SE"); // yyyy-mm-dd, 用本地時區
@@ -56,6 +60,14 @@ function safeLinkHref(url) {
   return null;
 }
 
+function attachmentIcon(fileName) {
+  const ext = (fileName.split(".").pop() || "").toLowerCase();
+  if (["png", "jpg", "jpeg", "gif", "webp"].includes(ext)) return "🖼️";
+  if (ext === "pdf") return "📕";
+  if (["doc", "docx"].includes(ext)) return "📄";
+  return "📎";
+}
+
 // ---------- Auth ----------
 async function checkSession() {
   const { data: { session } } = await supabase.auth.getSession();
@@ -75,6 +87,8 @@ async function showApp() {
   loginScreen.classList.add("hidden");
   appScreen.classList.remove("hidden");
   setDefaultTaskDate();
+  const { data: { user } } = await supabase.auth.getUser();
+  currentUserId = user?.id || null;
   await loadProjects();
   await loadTasks();
 }
@@ -195,7 +209,7 @@ async function loadTasks() {
   taskListEl.innerHTML = '<p class="empty-hint">載入中…⏳</p>';
   const { data, error } = await supabase
     .from("tasks")
-    .select("*, projects(icon, name, color)")
+    .select("*, projects(icon, name, color), task_attachments(*)")
     .eq("status", currentStatus)
     .order("follow_up_date", { ascending: true, nullsFirst: false });
   if (error) {
@@ -296,12 +310,36 @@ function renderTasks(tasks) {
     actions.push(`<button class="btn btn-icon" data-action="edit" data-id="${t.id}">✏️ 編輯</button>`);
     actions.push(`<button class="btn btn-icon" data-action="delete" data-id="${t.id}">🗑️ 刪除</button>`);
 
+    const attachments = t.task_attachments || [];
+    const attachmentChips = attachments
+      .map(
+        (a) => `
+          <span class="attachment-chip">
+            ${attachmentIcon(a.file_name)} ${escapeHtml(a.file_name)}
+            <button type="button" class="attachment-mini-btn" data-action="open-attachment" data-path="${escapeHtml(
+              a.storage_path
+            )}" title="開啟附件">🔗</button>
+            <button type="button" class="attachment-mini-btn" data-action="delete-attachment" data-id="${a.id}" data-path="${escapeHtml(
+              a.storage_path
+            )}" title="刪除附件">✕</button>
+          </span>
+        `
+      )
+      .join("");
+
     card.innerHTML = `
       <div class="task-top">
         <span class="task-title">${escapeHtml(t.title)}</span>
       </div>
       <div class="task-badges">${badges.join("")}</div>
       ${t.notes ? `<div class="task-notes">🖊️ ${escapeHtml(t.notes)}</div>` : ""}
+      <div class="task-attachments">
+        ${attachmentChips}
+        <label class="attachment-upload-label">
+          📎 上傳附件
+          <input type="file" class="attachment-upload-input" data-task-id="${t.id}" accept=".pdf,.doc,.docx,.png,.jpg,.jpeg" hidden />
+        </label>
+      </div>
       <div class="task-actions">${actions.join("")}</div>
     `;
     taskListEl.appendChild(card);
@@ -328,6 +366,27 @@ taskListEl.addEventListener("click", async (e) => {
   if (action === "cancel-edit") {
     editingTaskId = null;
     renderTasks(tasksCache);
+    return;
+  }
+
+  if (action === "open-attachment") {
+    const { data, error } = await supabase.storage
+      .from(ATTACHMENT_BUCKET)
+      .createSignedUrl(btn.dataset.path, 60);
+    if (error) {
+      alert("開啟附件失敗：" + error.message);
+      return;
+    }
+    window.open(data.signedUrl, "_blank", "noopener,noreferrer");
+    return;
+  }
+
+  if (action === "delete-attachment") {
+    if (!confirm("確定要刪除這個附件嗎？")) return;
+    await supabase.storage.from(ATTACHMENT_BUCKET).remove([btn.dataset.path]);
+    const { error } = await supabase.from("task_attachments").delete().eq("id", id);
+    if (error) alert("刪除附件失敗：" + error.message);
+    await loadTasks();
     return;
   }
 
@@ -366,6 +425,44 @@ taskListEl.addEventListener("submit", async (e) => {
     alert("更新失敗：" + error.message);
     return;
   }
+  await loadTasks();
+});
+
+taskListEl.addEventListener("change", async (e) => {
+  const input = e.target.closest(".attachment-upload-input");
+  if (!input || !input.files.length) return;
+  const file = input.files[0];
+  const taskId = input.dataset.taskId;
+
+  if (file.size > MAX_ATTACHMENT_SIZE) {
+    alert("檔案過大，上限為 20MB。");
+    input.value = "";
+    return;
+  }
+  if (!currentUserId) {
+    alert("上傳失敗：找不到目前使用者，請重新登入。");
+    return;
+  }
+
+  const path = `${currentUserId}/${taskId}/${Date.now()}-${file.name}`;
+  const { error: uploadError } = await supabase.storage.from(ATTACHMENT_BUCKET).upload(path, file);
+  if (uploadError) {
+    alert("上傳失敗：" + uploadError.message);
+    return;
+  }
+
+  const { error: insertError } = await supabase.from("task_attachments").insert({
+    task_id: taskId,
+    file_name: file.name,
+    storage_path: path,
+    size_bytes: file.size,
+  });
+  if (insertError) {
+    alert("上傳失敗：" + insertError.message);
+    return;
+  }
+
+  input.value = "";
   await loadTasks();
 });
 
