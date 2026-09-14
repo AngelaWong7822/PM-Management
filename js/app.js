@@ -30,9 +30,15 @@ const tabButtons = document.querySelectorAll(".tab-btn");
 
 let projects = [];
 let currentStatus = "active";
+let tasksCache = [];
+let editingTaskId = null;
 
 function todayStr() {
   return new Date().toLocaleDateString("sv-SE"); // yyyy-mm-dd, 用本地時區
+}
+
+function setDefaultTaskDate() {
+  taskDateInput.value = todayStr();
 }
 
 function dateOnly(isoTimestamp) {
@@ -68,6 +74,7 @@ function showLogin() {
 async function showApp() {
   loginScreen.classList.add("hidden");
   appScreen.classList.remove("hidden");
+  setDefaultTaskDate();
   await loadProjects();
   await loadTasks();
 }
@@ -195,7 +202,39 @@ async function loadTasks() {
     taskListEl.innerHTML = `<p class="empty-hint">載入失敗：${error.message}</p>`;
     return;
   }
-  renderTasks(data || []);
+  tasksCache = data || [];
+  editingTaskId = null;
+  renderTasks(tasksCache);
+}
+
+function projectOptionsHtml(selectedId) {
+  let html = `<option value="" ${!selectedId ? "selected" : ""}>🗂️ 未分類</option>`;
+  for (const p of projects) {
+    html += `<option value="${p.id}" ${p.id === selectedId ? "selected" : ""}>${escapeHtml(p.icon)} ${escapeHtml(
+      p.name
+    )}</option>`;
+  }
+  return html;
+}
+
+function renderEditForm(t) {
+  return `
+    <form class="task-edit-form" data-id="${t.id}">
+      <input type="text" class="edit-title" value="${escapeHtml(t.title)}" required />
+      <select class="edit-project">${projectOptionsHtml(t.project_id)}</select>
+      <select class="edit-kind">
+        <option value="self" ${t.kind !== "delegated" ? "selected" : ""}>📌 自行跟進</option>
+        <option value="delegated" ${t.kind === "delegated" ? "selected" : ""}>📤 已轉交他人</option>
+      </select>
+      <input type="date" class="edit-date" value="${t.follow_up_date || ""}" />
+      <input type="url" class="edit-link" value="${escapeHtml(t.link || "")}" placeholder="🔗 相關網頁連結（選填）" />
+      <textarea class="edit-notes" rows="2" placeholder="🖊️ 備註（選填）">${escapeHtml(t.notes || "")}</textarea>
+      <div class="task-actions">
+        <button type="submit" class="btn btn-primary">💾 儲存</button>
+        <button type="button" class="btn btn-ghost" data-action="cancel-edit">取消</button>
+      </div>
+    </form>
+  `;
 }
 
 function renderTasks(tasks) {
@@ -208,6 +247,12 @@ function renderTasks(tasks) {
   for (const t of tasks) {
     const card = document.createElement("div");
     card.className = "task-card";
+
+    if (editingTaskId === t.id) {
+      card.innerHTML = renderEditForm(t);
+      taskListEl.appendChild(card);
+      continue;
+    }
 
     const badges = [];
     if (t.projects) {
@@ -248,6 +293,7 @@ function renderTasks(tasks) {
     } else {
       actions.push(`<button class="btn btn-icon" data-action="reopen" data-id="${t.id}">↩️ 重開</button>`);
     }
+    actions.push(`<button class="btn btn-icon" data-action="edit" data-id="${t.id}">✏️ 編輯</button>`);
     actions.push(`<button class="btn btn-icon" data-action="delete" data-id="${t.id}">🗑️ 刪除</button>`);
 
     card.innerHTML = `
@@ -273,6 +319,18 @@ taskListEl.addEventListener("click", async (e) => {
   if (!btn) return;
   const id = btn.dataset.id;
   const action = btn.dataset.action;
+
+  if (action === "edit") {
+    editingTaskId = id;
+    renderTasks(tasksCache);
+    return;
+  }
+  if (action === "cancel-edit") {
+    editingTaskId = null;
+    renderTasks(tasksCache);
+    return;
+  }
+
   let update = null;
   if (action === "done") update = { status: "done", completed_at: todayStr() };
   else if (action === "archive") update = { status: "archived" };
@@ -285,6 +343,28 @@ taskListEl.addEventListener("click", async (e) => {
   } else if (update) {
     const { error } = await supabase.from("tasks").update(update).eq("id", id);
     if (error) alert("更新失敗：" + error.message);
+  }
+  await loadTasks();
+});
+
+taskListEl.addEventListener("submit", async (e) => {
+  const form = e.target.closest(".task-edit-form");
+  if (!form) return;
+  e.preventDefault();
+  const title = form.querySelector(".edit-title").value.trim();
+  if (!title) return;
+  const payload = {
+    title,
+    project_id: form.querySelector(".edit-project").value || null,
+    kind: form.querySelector(".edit-kind").value,
+    follow_up_date: form.querySelector(".edit-date").value || null,
+    link: form.querySelector(".edit-link").value.trim() || null,
+    notes: form.querySelector(".edit-notes").value.trim() || null,
+  };
+  const { error } = await supabase.from("tasks").update(payload).eq("id", form.dataset.id);
+  if (error) {
+    alert("更新失敗：" + error.message);
+    return;
   }
   await loadTasks();
 });
@@ -307,6 +387,7 @@ taskForm.addEventListener("submit", async (e) => {
     return;
   }
   taskForm.reset();
+  setDefaultTaskDate();
   if (currentStatus === "active") await loadTasks();
 });
 

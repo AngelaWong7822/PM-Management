@@ -256,6 +256,22 @@ textarea { resize: vertical; }
 .task-actions { display: flex; gap: 6px; flex-wrap: wrap; }
 .task-actions a.btn-icon { text-decoration: none; }
 
+.task-edit-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.task-edit-form input[type="text"],
+.task-edit-form input[type="url"],
+.task-edit-form textarea {
+  flex: 1 1 100%;
+}
+.task-edit-form select,
+.task-edit-form input[type="date"] {
+  flex: 1 1 130px;
+}
+.task-edit-form .task-actions { flex: 1 1 100%; }
+
 @media (max-width: 480px) {
   body { font-size: 12.5px; }
   .app-main { padding: 12px; }
