@@ -147,9 +147,12 @@ textarea { resize: vertical; }
   flex-wrap: wrap;
   gap: 8px;
 }
-.task-form input[type="text"], .task-form textarea { flex: 1 1 100%; }
+.task-form input[type="text"], .task-form input[type="url"], .task-form textarea { flex: 1 1 100%; }
 .task-form select, .task-form input[type="date"] { flex: 1 1 130px; }
+.task-form .task-attachment-picker { flex: 1 1 100%; display: flex; align-items: center; gap: 8px; }
 .task-form button { flex: 1 1 100%; }
+
+.attachment-filename { font-size: 11px; color: var(--ink-soft); }
 
 .project-form input[type="text"]:first-child { flex: 0 0 52px; text-align: center; }
 .project-form input[type="text"]:nth-child(2) { flex: 1 1 120px; }
@@ -255,6 +258,7 @@ textarea { resize: vertical; }
 
 .task-actions { display: flex; gap: 6px; flex-wrap: wrap; }
 .task-actions a.btn-icon { text-decoration: none; }
+.task-actions-extra { margin-top: -2px; }
 
 .task-attachments {
   display: flex;

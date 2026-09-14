@@ -18,6 +18,8 @@ const taskProjectSelect = document.getElementById("task-project");
 const taskKindSelect = document.getElementById("task-kind");
 const taskDateInput = document.getElementById("task-date");
 const taskLinkInput = document.getElementById("task-link");
+const taskAttachmentInput = document.getElementById("task-attachment");
+const taskAttachmentNameEl = document.getElementById("task-attachment-name");
 const taskNotesInput = document.getElementById("task-notes");
 
 const projectForm = document.getElementById("project-form");
@@ -36,6 +38,7 @@ let currentStatus = "active";
 let tasksCache = [];
 let editingTaskId = null;
 let currentUserId = null;
+let expandedMenuIds = new Set();
 
 function todayStr() {
   return new Date().toLocaleDateString("sv-SE"); // yyyy-mm-dd, 用本地時區
@@ -44,6 +47,11 @@ function todayStr() {
 function setDefaultTaskDate() {
   taskDateInput.value = todayStr();
 }
+
+taskAttachmentInput.addEventListener("change", () => {
+  const file = taskAttachmentInput.files[0];
+  taskAttachmentNameEl.textContent = file ? `📄 ${file.name}` : "";
+});
 
 function dateOnly(isoTimestamp) {
   return isoTimestamp ? isoTimestamp.slice(0, 10) : "";
@@ -301,6 +309,7 @@ function renderTasks(tasks) {
     }
 
     const actions = [];
+    const extraActions = [];
     const linkHref = safeLinkHref(t.link);
     if (linkHref) {
       actions.push(
@@ -309,15 +318,21 @@ function renderTasks(tasks) {
     }
     if (t.status === "active") {
       actions.push(`<button class="btn btn-icon" data-action="done" data-id="${t.id}">✅ 完成</button>`);
-      actions.push(`<button class="btn btn-icon" data-action="archive" data-id="${t.id}">🗄️ 封存</button>`);
+      extraActions.push(`<button class="btn btn-icon" data-action="archive" data-id="${t.id}">🗄️ 封存</button>`);
     } else if (t.status === "done") {
       actions.push(`<button class="btn btn-icon" data-action="reopen" data-id="${t.id}">↩️ 重開</button>`);
-      actions.push(`<button class="btn btn-icon" data-action="archive" data-id="${t.id}">🗄️ 封存</button>`);
+      extraActions.push(`<button class="btn btn-icon" data-action="archive" data-id="${t.id}">🗄️ 封存</button>`);
     } else {
       actions.push(`<button class="btn btn-icon" data-action="reopen" data-id="${t.id}">↩️ 重開</button>`);
     }
-    actions.push(`<button class="btn btn-icon" data-action="edit" data-id="${t.id}">✏️ 編輯</button>`);
-    actions.push(`<button class="btn btn-icon" data-action="delete" data-id="${t.id}">🗑️ 刪除</button>`);
+    extraActions.push(`<button class="btn btn-icon" data-action="edit" data-id="${t.id}">✏️ 編輯</button>`);
+    extraActions.push(`<button class="btn btn-icon" data-action="delete" data-id="${t.id}">🗑️ 刪除</button>`);
+    const menuOpen = expandedMenuIds.has(t.id);
+    actions.push(
+      `<button type="button" class="btn btn-icon" data-action="toggle-menu" data-id="${t.id}">${
+        menuOpen ? "▲ 收起" : "⋯ 更多"
+      }</button>`
+    );
 
     const attachments = t.task_attachments || [];
     const attachmentChips = attachments
@@ -350,6 +365,7 @@ function renderTasks(tasks) {
         </label>
       </div>
       <div class="task-actions">${actions.join("")}</div>
+      <div class="task-actions task-actions-extra${menuOpen ? "" : " hidden"}">${extraActions.join("")}</div>
     `;
     taskListEl.appendChild(card);
   }
@@ -374,6 +390,13 @@ taskListEl.addEventListener("click", async (e) => {
   }
   if (action === "cancel-edit") {
     editingTaskId = null;
+    renderTasks(tasksCache);
+    return;
+  }
+
+  if (action === "toggle-menu") {
+    if (expandedMenuIds.has(id)) expandedMenuIds.delete(id);
+    else expandedMenuIds.add(id);
     renderTasks(tasksCache);
     return;
   }
@@ -437,27 +460,21 @@ taskListEl.addEventListener("submit", async (e) => {
   await loadTasks();
 });
 
-taskListEl.addEventListener("change", async (e) => {
-  const input = e.target.closest(".attachment-upload-input");
-  if (!input || !input.files.length) return;
-  const file = input.files[0];
-  const taskId = input.dataset.taskId;
-
+async function uploadAttachment(taskId, file) {
   if (file.size > MAX_ATTACHMENT_SIZE) {
     alert("檔案過大，上限為 20MB。");
-    input.value = "";
-    return;
+    return false;
   }
   if (!currentUserId) {
     alert("上傳失敗：找不到目前使用者，請重新登入。");
-    return;
+    return false;
   }
 
   const path = `${currentUserId}/${taskId}/${Date.now()}-${file.name}`;
   const { error: uploadError } = await supabase.storage.from(ATTACHMENT_BUCKET).upload(path, file);
   if (uploadError) {
     alert("上傳失敗：" + uploadError.message);
-    return;
+    return false;
   }
 
   const { error: insertError } = await supabase.from("task_attachments").insert({
@@ -468,11 +485,18 @@ taskListEl.addEventListener("change", async (e) => {
   });
   if (insertError) {
     alert("上傳失敗：" + insertError.message);
-    return;
+    return false;
   }
+  return true;
+}
 
+taskListEl.addEventListener("change", async (e) => {
+  const input = e.target.closest(".attachment-upload-input");
+  if (!input || !input.files.length) return;
+  const file = input.files[0];
+  const ok = await uploadAttachment(input.dataset.taskId, file);
   input.value = "";
-  await loadTasks();
+  if (ok) await loadTasks();
 });
 
 taskForm.addEventListener("submit", async (e) => {
@@ -487,13 +511,18 @@ taskForm.addEventListener("submit", async (e) => {
     link: taskLinkInput.value.trim() || null,
     notes: taskNotesInput.value.trim() || null,
   };
-  const { error } = await supabase.from("tasks").insert(payload);
+  const { data, error } = await supabase.from("tasks").insert(payload).select().single();
   if (error) {
     alert("新增失敗：" + error.message);
     return;
   }
+  const file = taskAttachmentInput.files[0];
+  if (file) {
+    await uploadAttachment(data.id, file);
+  }
   taskForm.reset();
   setDefaultTaskDate();
+  taskAttachmentNameEl.textContent = "";
   if (currentStatus === "active") await loadTasks();
 });
 

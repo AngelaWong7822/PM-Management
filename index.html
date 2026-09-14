@@ -65,6 +65,13 @@
         </select>
         <input type="date" id="task-date" title="跟進日期" />
         <input type="url" id="task-link" placeholder="🔗 相關網頁連結（選填）" />
+        <div class="task-attachment-picker">
+          <label class="attachment-upload-label">
+            📎 附加檔案（選填）
+            <input type="file" id="task-attachment" accept=".pdf,.doc,.docx,.png,.jpg,.jpeg" hidden />
+          </label>
+          <span id="task-attachment-name" class="attachment-filename"></span>
+        </div>
         <textarea id="task-notes" placeholder="🖊️ 備註（選填）" rows="2"></textarea>
         <button type="submit" class="btn btn-primary">➕ 加入清單</button>
       </form>
