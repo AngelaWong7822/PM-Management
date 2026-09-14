@@ -34,7 +34,20 @@
 <div id="app-screen" class="screen hidden">
   <header class="app-header">
     <div class="brand">🐻 我的專案手帳</div>
-    <button id="logout-btn" class="btn btn-ghost">🚪 登出</button>
+    <div class="header-actions">
+      <button id="project-toggle-btn" class="btn btn-ghost">🗂️ Project</button>
+      <button id="logout-btn" class="btn btn-ghost">🚪 登出</button>
+      <div id="project-panel" class="project-panel hidden">
+        <h2>🗂️ 我嘅 Project</h2>
+        <div id="project-list" class="project-list"></div>
+        <form id="project-form" class="project-form">
+          <input type="text" id="project-icon" maxlength="2" placeholder="🐣" value="📁" />
+          <input type="text" id="project-name" placeholder="Project 名稱" required />
+          <input type="color" id="project-color" value="#ffd6e8" />
+          <button type="submit" class="btn btn-secondary">➕ 新增 Project</button>
+        </form>
+      </div>
+    </div>
   </header>
 
   <main class="app-main">
@@ -49,18 +62,6 @@
         <input type="date" id="task-date" title="follow-up 日期" />
         <textarea id="task-notes" placeholder="🖊️ 備註（可留空）" rows="2"></textarea>
         <button type="submit" class="btn btn-primary">➕ 加入清單</button>
-      </form>
-    </section>
-
-    <!-- project 管理 -->
-    <section class="card">
-      <h2>🗂️ 我嘅 Project</h2>
-      <div id="project-list" class="project-list"></div>
-      <form id="project-form" class="project-form">
-        <input type="text" id="project-icon" maxlength="2" placeholder="🐣" value="📁" />
-        <input type="text" id="project-name" placeholder="Project 名稱" required />
-        <input type="color" id="project-color" value="#ffd6e8" />
-        <button type="submit" class="btn btn-secondary">➕ 新增 Project</button>
       </form>
     </section>
 

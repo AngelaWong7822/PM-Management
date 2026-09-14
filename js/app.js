@@ -20,6 +20,8 @@ const projectIconInput = document.getElementById("project-icon");
 const projectNameInput = document.getElementById("project-name");
 const projectColorInput = document.getElementById("project-color");
 const projectListEl = document.getElementById("project-list");
+const projectToggleBtn = document.getElementById("project-toggle-btn");
+const projectPanel = document.getElementById("project-panel");
 
 const taskListEl = document.getElementById("task-list");
 const tabButtons = document.querySelectorAll(".tab-btn");
@@ -69,6 +71,17 @@ loginForm.addEventListener("submit", async (e) => {
 logoutBtn.addEventListener("click", async () => {
   await supabase.auth.signOut();
   showLogin();
+});
+
+projectToggleBtn.addEventListener("click", (e) => {
+  e.stopPropagation();
+  projectPanel.classList.toggle("hidden");
+});
+
+document.addEventListener("click", (e) => {
+  if (projectPanel.classList.contains("hidden")) return;
+  if (projectPanel.contains(e.target) || e.target === projectToggleBtn) return;
+  projectPanel.classList.add("hidden");
 });
 
 // ---------- Projects ----------
