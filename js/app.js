@@ -136,10 +136,35 @@ function renderProjectPills() {
     const pill = document.createElement("span");
     pill.className = "project-pill";
     pill.style.background = p.color;
-    pill.textContent = `${p.icon} ${p.name}`;
+
+    const label = document.createElement("span");
+    label.textContent = `${p.icon} ${p.name}`;
+    pill.appendChild(label);
+
+    const delBtn = document.createElement("button");
+    delBtn.type = "button";
+    delBtn.className = "project-pill-delete";
+    delBtn.dataset.id = p.id;
+    delBtn.title = "刪除專案";
+    delBtn.textContent = "✕";
+    pill.appendChild(delBtn);
+
     projectListEl.appendChild(pill);
   }
 }
+
+projectListEl.addEventListener("click", async (e) => {
+  const btn = e.target.closest(".project-pill-delete");
+  if (!btn) return;
+  if (!confirm("確定要刪除這個專案嗎？相關的待辦事項將變成未分類。")) return;
+  const { error } = await supabase.from("projects").delete().eq("id", btn.dataset.id);
+  if (error) {
+    alert("刪除專案失敗：" + error.message);
+    return;
+  }
+  await loadProjects();
+  await loadTasks();
+});
 
 projectForm.addEventListener("submit", async (e) => {
   e.preventDefault();

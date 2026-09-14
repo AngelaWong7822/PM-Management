@@ -165,12 +165,30 @@ textarea { resize: vertical; }
 .project-pill {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 5px 10px;
+  gap: 6px;
+  padding: 5px 8px 5px 10px;
   border-radius: 999px;
   font-size: 12px;
   font-weight: 600;
 }
+
+.project-pill-delete {
+  border: none;
+  background: rgba(0, 0, 0, 0.1);
+  color: inherit;
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  font-size: 10px;
+  line-height: 1;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+.project-pill-delete:hover { background: rgba(0, 0, 0, 0.22); }
 
 /* ---------- Tabs ---------- */
 .tabs {
