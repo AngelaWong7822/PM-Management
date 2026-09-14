@@ -68,6 +68,17 @@ function safeLinkHref(url) {
   return null;
 }
 
+function sanitizeFileName(name) {
+  const dotIndex = name.lastIndexOf(".");
+  const ext = dotIndex > -1 ? name.slice(dotIndex).replace(/[^\w.]+/g, "") : "";
+  const base = dotIndex > -1 ? name.slice(0, dotIndex) : name;
+  const safeBase = base
+    .normalize("NFKD")
+    .replace(/[^\w-]+/g, "_")
+    .slice(0, 60);
+  return (safeBase || "file") + ext;
+}
+
 function attachmentIcon(fileName) {
   const ext = (fileName.split(".").pop() || "").toLowerCase();
   if (["png", "jpg", "jpeg", "gif", "webp"].includes(ext)) return "🖼️";
@@ -486,7 +497,7 @@ async function uploadAttachment(taskId, file) {
     return false;
   }
 
-  const path = `${currentUserId}/${taskId}/${Date.now()}-${file.name}`;
+  const path = `${currentUserId}/${taskId}/${Date.now()}-${sanitizeFileName(file.name)}`;
   const { error: uploadError } = await supabase.storage.from(ATTACHMENT_BUCKET).upload(path, file);
   if (uploadError) {
     alert("上傳失敗：" + uploadError.message);
