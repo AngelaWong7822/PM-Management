@@ -8,7 +8,7 @@
 
 ### 1. 開 Supabase project
 1. 去 https://supabase.com 開一個新 project（免費 plan 就夠）。
-2. 左側選單 **SQL Editor** -> New query，貼晒 [`db/schema.sql`](db/schema.sql) 成份內容，按 Run。
+2. 左側選單 **SQL Editor** -> New query，貼晒本地 `db/schema.sql`（喺你部電腦嘅 `pm-tracker/db/` 資料夾入面，冇放上 GitHub）成份內容，按 Run。
 3. 左側選單 **Authentication -> Users** -> Add user，用你自己個 email + 密碼開一個帳戶（呢個網站冇做「註冊」畫面，淨係你一個人用）。
 4. 左側選單 **Project Settings -> API**，攞返：
    - `Project URL`
