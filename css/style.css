@@ -1,0 +1,219 @@
+:root {
+  --pink: #ffd6e8;
+  --lavender: #e3d9ff;
+  --mint: #d3f8e8;
+  --peach: #ffe4c4;
+  --ink: #5b4b57;
+  --ink-soft: #8a7a86;
+  --card-bg: #fffdfb;
+  --radius: 18px;
+  --shadow: 0 6px 16px rgba(180, 150, 170, 0.18);
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  font-family: "PingFang TC", "Microsoft JhengHei", "Baloo 2", system-ui, sans-serif;
+  font-size: 13px;
+  color: var(--ink);
+  background: linear-gradient(135deg, var(--pink) 0%, var(--lavender) 45%, var(--mint) 100%);
+  background-attachment: fixed;
+}
+
+h1, h2 {
+  font-family: "Baloo 2", "PingFang TC", "Microsoft JhengHei", sans-serif;
+  margin: 0 0 8px;
+}
+
+h1 { font-size: 22px; text-align: center; }
+h2 { font-size: 15px; color: var(--ink); display: flex; align-items: center; gap: 6px; }
+
+.hidden { display: none !important; }
+
+/* ---------- 登入畫面 ---------- */
+#login-screen {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.login-card {
+  background: var(--card-bg);
+  border-radius: 24px;
+  box-shadow: var(--shadow);
+  padding: 32px 28px;
+  width: 100%;
+  max-width: 320px;
+  text-align: center;
+}
+
+.login-mascot { font-size: 40px; margin-bottom: 4px; }
+.subtitle { color: var(--ink-soft); font-size: 12px; margin-top: 0; margin-bottom: 20px; }
+
+#login-form { display: flex; flex-direction: column; gap: 14px; text-align: left; }
+#login-form label { font-size: 12px; color: var(--ink-soft); display: flex; flex-direction: column; gap: 4px; }
+
+.error-text { color: #e0668a; font-size: 12px; min-height: 14px; margin: 0; }
+
+/* ---------- 輸入元件 ---------- */
+input, select, textarea {
+  font-family: inherit;
+  font-size: 13px;
+  padding: 9px 12px;
+  border-radius: 12px;
+  border: 1.5px solid #f0e0ea;
+  background: #fffefd;
+  color: var(--ink);
+  outline: none;
+  width: 100%;
+}
+input:focus, select:focus, textarea:focus { border-color: #f3b8d0; }
+textarea { resize: vertical; }
+
+.btn {
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 9px 16px;
+  border-radius: 999px;
+  border: none;
+  cursor: pointer;
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+}
+.btn:hover { transform: translateY(-1px) scale(1.02); }
+.btn:active { transform: scale(0.97); }
+
+.btn-primary { background: #ffb3cf; color: #5b2c40; box-shadow: 0 4px 10px rgba(255,150,190,0.4); }
+.btn-secondary { background: #c9e3ff; color: #2c4a5b; box-shadow: 0 4px 10px rgba(150,200,255,0.35); }
+.btn-ghost { background: transparent; color: var(--ink-soft); border: 1.5px solid #e6d5df; }
+.btn-icon { padding: 4px 8px; border-radius: 10px; font-size: 12px; background: #f5eef2; }
+
+/* ---------- App layout ---------- */
+.app-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 20px;
+  background: rgba(255,255,255,0.6);
+  backdrop-filter: blur(6px);
+  position: sticky;
+  top: 0;
+  z-index: 5;
+}
+.brand { font-family: "Baloo 2", sans-serif; font-weight: 700; font-size: 16px; }
+
+.app-main {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.card {
+  background: var(--card-bg);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 18px 18px 20px;
+}
+
+.task-form, .project-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.task-form input[type="text"], .task-form textarea { flex: 1 1 100%; }
+.task-form select, .task-form input[type="date"] { flex: 1 1 130px; }
+.task-form button { flex: 1 1 100%; }
+
+.project-form input[type="text"]:first-child { flex: 0 0 52px; text-align: center; }
+.project-form input[type="text"]:nth-child(2) { flex: 1 1 120px; }
+.project-form input[type="color"] { flex: 0 0 44px; padding: 2px; height: 36px; }
+.project-form button { flex: 1 1 100%; }
+
+.project-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+.project-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+/* ---------- Tabs ---------- */
+.tabs {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+.tab-btn {
+  flex: 1;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 8px 6px;
+  border-radius: 12px;
+  border: none;
+  background: #f5eef2;
+  color: var(--ink-soft);
+  cursor: pointer;
+}
+.tab-btn.active { background: #ffd6e8; color: #5b2c40; }
+
+/* ---------- Task list ---------- */
+.task-list { display: flex; flex-direction: column; gap: 10px; }
+.empty-hint { color: var(--ink-soft); font-size: 12px; text-align: center; padding: 20px 0; }
+
+.task-card {
+  border-radius: 14px;
+  padding: 12px 14px;
+  background: #fff9fb;
+  border: 1.5px solid #f5e6ee;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.task-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.task-title { font-size: 13.5px; font-weight: 700; }
+.task-badges { display: flex; flex-wrap: wrap; gap: 5px; font-size: 11px; }
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-weight: 600;
+}
+.badge-project { background: #eee7fb; color: #4a3a6b; }
+.badge-today { background: #ffe0b3; color: #7a4a00; }
+.badge-overdue { background: #ffd0d6; color: #8a2e3a; }
+.badge-date { background: #eef; color: #445; }
+
+.task-notes { font-size: 12px; color: var(--ink-soft); white-space: pre-wrap; }
+
+.task-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+
+@media (max-width: 480px) {
+  body { font-size: 12.5px; }
+  .app-main { padding: 12px; }
+}

@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>🐻 我的專案手帳</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🐻</text></svg>" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+<!-- 登入畫面 -->
+<div id="login-screen" class="screen">
+  <div class="login-card">
+    <div class="login-mascot">🐻🌸</div>
+    <h1>我的專案手帳</h1>
+    <p class="subtitle">得我一個先入到嚟㗎～</p>
+    <form id="login-form">
+      <label>📧 Email
+        <input type="email" id="login-email" required placeholder="you@example.com" />
+      </label>
+      <label>🔒 密碼
+        <input type="password" id="login-password" required placeholder="••••••••" />
+      </label>
+      <button type="submit" class="btn btn-primary">✨ 登入</button>
+      <p id="login-error" class="error-text"></p>
+    </form>
+  </div>
+</div>
+
+<!-- 主畫面 -->
+<div id="app-screen" class="screen hidden">
+  <header class="app-header">
+    <div class="brand">🐻 我的專案手帳</div>
+    <button id="logout-btn" class="btn btn-ghost">🚪 登出</button>
+  </header>
+
+  <main class="app-main">
+    <!-- 新增 task -->
+    <section class="card">
+      <h2>📝 新增待辦</h2>
+      <form id="task-form" class="task-form">
+        <input type="text" id="task-title" placeholder="🎯 要做咩事？" required />
+        <select id="task-project">
+          <option value="">🗂️ 未分類</option>
+        </select>
+        <input type="date" id="task-date" title="follow-up 日期" />
+        <textarea id="task-notes" placeholder="🖊️ 備註（可留空）" rows="2"></textarea>
+        <button type="submit" class="btn btn-primary">➕ 加入清單</button>
+      </form>
+    </section>
+
+    <!-- project 管理 -->
+    <section class="card">
+      <h2>🗂️ 我嘅 Project</h2>
+      <div id="project-list" class="project-list"></div>
+      <form id="project-form" class="project-form">
+        <input type="text" id="project-icon" maxlength="2" placeholder="🐣" value="📁" />
+        <input type="text" id="project-name" placeholder="Project 名稱" required />
+        <input type="color" id="project-color" value="#ffd6e8" />
+        <button type="submit" class="btn btn-secondary">➕ 新增 Project</button>
+      </form>
+    </section>
+
+    <!-- task list -->
+    <section class="card">
+      <div class="tabs">
+        <button class="tab-btn active" data-status="active">🔵 進行中</button>
+        <button class="tab-btn" data-status="done">✅ 已完成</button>
+        <button class="tab-btn" data-status="archived">🗄️ 封存</button>
+      </div>
+      <div id="task-list" class="task-list">
+        <p class="empty-hint">載入緊呀…⏳</p>
+      </div>
+    </section>
+  </main>
+</div>
+
+<script type="module" src="js/app.js"></script>
+</body>
+</html>
