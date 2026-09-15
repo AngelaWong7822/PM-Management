@@ -35,27 +35,23 @@ async function main() {
     .from("tasks")
     .select("title, notes, follow_up_date, notify_daily, projects(icon, name)")
     .eq("status", "active")
-    .or(`follow_up_date.lte.${today},notify_daily.eq.true`)
-    .order("follow_up_date", { ascending: true });
+    .order("follow_up_date", { ascending: true, nullsFirst: false });
 
   if (error) {
     console.error("Failed to load tasks from Supabase:", error.message);
     process.exit(1);
   }
 
-  const dueToday = (tasks || []).filter((t) => t.follow_up_date === today);
-  const overdue = (tasks || []).filter((t) => t.follow_up_date && t.follow_up_date < today);
-  const pinned = (tasks || []).filter(
-    (t) => t.notify_daily && (!t.follow_up_date || t.follow_up_date > today)
-  );
+  const activeTasks = tasks || [];
 
-  if (dueToday.length === 0 && overdue.length === 0 && pinned.length === 0) {
-    console.log("No follow-ups due today, skipping email.");
+  if (activeTasks.length === 0) {
+    console.log("No active tasks, skipping email.");
     return;
   }
 
-  const html = renderEmailHtml(today, dueToday, overdue, pinned);
-  const text = renderEmailText(today, dueToday, overdue, pinned);
+  const groups = groupByProject(activeTasks);
+  const html = renderEmailHtml(today, groups);
+  const text = renderEmailText(today, groups);
 
   const transporter = nodemailer.createTransport({
     service: "gmail",
@@ -71,55 +67,79 @@ async function main() {
   });
 
   console.log(
-    `Email sent to ${RECIPIENT_EMAIL} with ${dueToday.length} due today, ${overdue.length} overdue, ${pinned.length} pinned.`
+    `Email sent to ${RECIPIENT_EMAIL} with ${activeTasks.length} active tasks across ${groups.length} project group(s).`
   );
 }
 
-function line(t) {
-  const tag = t.projects ? `${t.projects.icon} ${t.projects.name}` : "🗂️ 未分類";
+function groupByProject(tasks) {
+  const map = new Map();
+  for (const t of tasks) {
+    const key = t.projects ? t.projects.name : "未分類";
+    const icon = t.projects ? t.projects.icon : "🗂️";
+    if (!map.has(key)) map.set(key, { icon, name: key, tasks: [] });
+    map.get(key).tasks.push(t);
+  }
+  return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name, "zh-Hant"));
+}
+
+function dateTag(t, today) {
+  if (!t.follow_up_date) return "";
+  if (t.follow_up_date === today) return "🔥 今日";
+  if (t.follow_up_date < today) return "⏰ 逾期";
+  return `📅 ${t.follow_up_date}`;
+}
+
+function line(t, today) {
+  const tag = dateTag(t, today);
+  const pin = t.notify_daily ? "📌 持續提醒" : "";
+  const tags = [tag, pin].filter(Boolean).join(" ");
   const notes = t.notes ? ` — ${t.notes}` : "";
-  return `${tag}：${t.title}${notes}`;
+  return `${t.title}${tags ? ` [${tags}]` : ""}${notes}`;
 }
 
-function renderEmailText(today, dueToday, overdue, pinned) {
+function renderEmailText(today, groups) {
   const parts = [`今日日期：${today}`, ""];
-  if (dueToday.length) {
-    parts.push("🔥 今日要 Follow-up：");
-    dueToday.forEach((t) => parts.push(" - " + line(t)));
+  for (const g of groups) {
+    parts.push(`${g.icon} ${g.name}`);
+    g.tasks.forEach((t) => parts.push(" - " + line(t, today)));
     parts.push("");
   }
-  if (overdue.length) {
-    parts.push("⏰ 逾期未跟：");
-    overdue.forEach((t) => parts.push(" - " + line(t)));
-    parts.push("");
-  }
-  if (pinned.length) {
-    parts.push("📌 持續提醒：");
-    pinned.forEach((t) => parts.push(" - " + line(t)));
-  }
-  return parts.join("\n");
+  return parts.join("\n").trim();
 }
 
-function renderEmailHtml(today, dueToday, overdue, pinned) {
-  const section = (title, items) =>
-    items.length
-      ? `<h3>${title}</h3><ul>${items
-          .map(
-            (t) =>
-              `<li><b>${escapeHtml(t.projects ? `${t.projects.icon} ${t.projects.name}` : "🗂️ 未分類")}</b>：${escapeHtml(
-                t.title
-              )}${t.notes ? ` <span style="color:#8a7a86;">— ${escapeHtml(t.notes)}</span>` : ""}</li>`
-          )
-          .join("")}</ul>`
+function renderEmailHtml(today, groups) {
+  const tagHtml = (tag) => {
+    if (!tag) return "";
+    if (tag.includes("今日")) return `<span style="color:#c26a00;font-weight:bold;">${tag}</span>`;
+    if (tag.includes("逾期")) return `<span style="color:#b0323f;font-weight:bold;">${tag}</span>`;
+    return `<span style="color:#8a7a86;">${tag}</span>`;
+  };
+  const pinHtml = (t) =>
+    t.notify_daily
+      ? ` <span style="background:#ffe0ee;color:#8a2e5e;padding:2px 8px;border-radius:999px;font-size:12px;font-weight:bold;">📌 持續提醒，要注意</span>`
       : "";
+
+  const section = (g) => `
+    <h3 style="margin-bottom:4px;">${escapeHtml(g.icon)} ${escapeHtml(g.name)}</h3>
+    <ul style="margin-top:4px;">
+      ${g.tasks
+        .map(
+          (t) => `<li style="margin-bottom:4px;">
+            <b>${escapeHtml(t.title)}</b>
+            ${tagHtml(dateTag(t, today))}
+            ${pinHtml(t)}
+            ${t.notes ? `<br/><span style="color:#8a7a86;">${escapeHtml(t.notes)}</span>` : ""}
+          </li>`
+        )
+        .join("")}
+    </ul>
+  `;
 
   return `
     <div style="font-family:sans-serif;font-size:14px;color:#5b4b57;">
       <h2>📋 今日 Follow-up 清單</h2>
       <p style="color:#8a7a86;">${today}</p>
-      ${section("🔥 今日要 Follow-up", dueToday)}
-      ${section("⏰ 逾期未跟", overdue)}
-      ${section("📌 持續提醒", pinned)}
+      ${groups.map(section).join("")}
     </div>
   `;
 }
