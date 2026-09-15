@@ -17,6 +17,7 @@ const taskTitleInput = document.getElementById("task-title");
 const taskProjectSelect = document.getElementById("task-project");
 const taskKindSelect = document.getElementById("task-kind");
 const taskDateInput = document.getElementById("task-date");
+const taskGraceInput = document.getElementById("task-grace");
 const taskLinkInput = document.getElementById("task-link");
 const taskAttachmentInput = document.getElementById("task-attachment");
 const taskAttachmentNameEl = document.getElementById("task-attachment-name");
@@ -55,6 +56,12 @@ taskAttachmentInput.addEventListener("change", () => {
 
 function dateOnly(isoTimestamp) {
   return isoTimestamp ? isoTimestamp.slice(0, 10) : "";
+}
+
+function addDaysStr(dateStr, days) {
+  const d = new Date(dateStr + "T00:00:00");
+  d.setDate(d.getDate() + (days || 0));
+  return d.toLocaleDateString("sv-SE");
 }
 
 function safeLinkHref(url) {
@@ -260,6 +267,7 @@ function renderEditForm(t) {
         <option value="delegated" ${t.kind === "delegated" ? "selected" : ""}>📤 已轉交他人</option>
       </select>
       <input type="date" class="edit-date" value="${t.follow_up_date || ""}" />
+      <input type="number" class="edit-grace" min="0" value="${t.overdue_grace_days || 0}" title="逾期寬限日數" />
       <input type="url" class="edit-link" value="${escapeHtml(t.link || "")}" placeholder="🔗 相關網頁連結（選填）" />
       <textarea class="edit-notes" rows="2" placeholder="🖊️ 備註（選填）">${escapeHtml(t.notes || "")}</textarea>
       <div class="task-actions">
@@ -305,10 +313,13 @@ function renderTasks(tasks) {
         : `<span class="badge badge-self">📌 自行跟進</span>`
     );
     if (t.follow_up_date) {
+      const graceEndDate = addDaysStr(t.follow_up_date, t.overdue_grace_days);
       if (t.follow_up_date === today && t.status === "active") {
         badges.push(`<span class="badge badge-today">🔥 今日</span>`);
-      } else if (t.follow_up_date < today && t.status === "active") {
+      } else if (t.status === "active" && graceEndDate < today) {
         badges.push(`<span class="badge badge-overdue">⏰ 逾期</span>`);
+      } else if (t.status === "active" && t.follow_up_date < today) {
+        badges.push(`<span class="badge badge-grace">⏳ 寬限中(至 ${graceEndDate})</span>`);
       } else {
         badges.push(`<span class="badge badge-date">📅 ${t.follow_up_date}</span>`);
       }
@@ -478,6 +489,7 @@ taskListEl.addEventListener("submit", async (e) => {
     project_id: form.querySelector(".edit-project").value || null,
     kind: form.querySelector(".edit-kind").value,
     follow_up_date: form.querySelector(".edit-date").value || null,
+    overdue_grace_days: Number(form.querySelector(".edit-grace").value) || 0,
     link: form.querySelector(".edit-link").value.trim() || null,
     notes: form.querySelector(".edit-notes").value.trim() || null,
   };
@@ -537,6 +549,7 @@ taskForm.addEventListener("submit", async (e) => {
     project_id: taskProjectSelect.value || null,
     kind: taskKindSelect.value,
     follow_up_date: taskDateInput.value || null,
+    overdue_grace_days: Number(taskGraceInput.value) || 0,
     link: taskLinkInput.value.trim() || null,
     notes: taskNotesInput.value.trim() || null,
   };

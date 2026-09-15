@@ -148,7 +148,7 @@ textarea { resize: vertical; }
   gap: 8px;
 }
 .task-form input[type="text"], .task-form input[type="url"], .task-form textarea { flex: 1 1 100%; }
-.task-form select, .task-form input[type="date"] { flex: 1 1 130px; }
+.task-form select, .task-form input[type="date"], .task-form input[type="number"] { flex: 1 1 130px; }
 .task-form .task-attachment-picker { flex: 1 1 100%; display: flex; align-items: center; gap: 8px; }
 .task-form button { flex: 1 1 100%; }
 
@@ -248,6 +248,7 @@ textarea { resize: vertical; }
 .badge-project { background: #eee7fb; color: #4a3a6b; }
 .badge-today { background: #ffe0b3; color: #7a4a00; }
 .badge-overdue { background: #ffd0d6; color: #8a2e3a; }
+.badge-grace { background: #fff3cf; color: #8a6a1e; }
 .badge-date { background: #eef; color: #445; }
 .badge-self { background: #d3f8e8; color: #1f6b4c; }
 .badge-delegated { background: #ffe4c4; color: #8a5a1e; }
@@ -321,7 +322,8 @@ textarea { resize: vertical; }
   flex: 1 1 100%;
 }
 .task-edit-form select,
-.task-edit-form input[type="date"] {
+.task-edit-form input[type="date"],
+.task-edit-form input[type="number"] {
   flex: 1 1 130px;
 }
 .task-edit-form .task-actions { flex: 1 1 100%; }

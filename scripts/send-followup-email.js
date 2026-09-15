@@ -33,7 +33,7 @@ async function main() {
 
   const { data: tasks, error } = await supabase
     .from("tasks")
-    .select("title, notes, follow_up_date, notify_daily, projects(icon, name)")
+    .select("title, notes, follow_up_date, notify_daily, overdue_grace_days, projects(icon, name)")
     .eq("status", "active")
     .order("follow_up_date", { ascending: true, nullsFirst: false });
 
@@ -82,10 +82,19 @@ function groupByProject(tasks) {
   return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name, "zh-Hant"));
 }
 
+function addDaysStr(dateStr, days) {
+  const d = new Date(dateStr + "T00:00:00Z");
+  d.setUTCDate(d.getUTCDate() + (days || 0));
+  return d.toISOString().slice(0, 10);
+}
+
 function dateTag(t, today) {
   if (!t.follow_up_date) return "";
   if (t.follow_up_date === today) return "🔥 今日";
-  if (t.follow_up_date < today) return "⏰ 逾期";
+  if (t.follow_up_date < today) {
+    const graceEndDate = addDaysStr(t.follow_up_date, t.overdue_grace_days);
+    return graceEndDate < today ? "⏰ 逾期" : `⏳ 寬限中(至 ${graceEndDate})`;
+  }
   return `📅 ${t.follow_up_date}`;
 }
 
@@ -112,6 +121,7 @@ function renderEmailHtml(today, groups) {
     if (!tag) return "";
     if (tag.includes("今日")) return `<span style="color:#c26a00;font-weight:bold;">${tag}</span>`;
     if (tag.includes("逾期")) return `<span style="color:#b0323f;font-weight:bold;">${tag}</span>`;
+    if (tag.includes("寬限")) return `<span style="color:#8a6a1e;">${tag}</span>`;
     return `<span style="color:#8a7a86;">${tag}</span>`;
   };
   const pinHtml = (t) =>
