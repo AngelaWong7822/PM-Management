@@ -40,6 +40,7 @@ let tasksCache = [];
 let editingTaskId = null;
 let currentUserId = null;
 let expandedMenuIds = new Set();
+let groupExpandState = new Map();
 
 function todayStr() {
   return new Date().toLocaleDateString("sv-SE"); // yyyy-mm-dd, 用本地時區
@@ -278,128 +279,214 @@ function renderEditForm(t) {
   `;
 }
 
+function taskDateStatus(t, today) {
+  if (!t.follow_up_date || t.status !== "active") return null;
+  if (t.follow_up_date === today) return "today";
+  if (t.follow_up_date < today) {
+    const graceEndDate = addDaysStr(t.follow_up_date, t.overdue_grace_days);
+    return graceEndDate < today ? "overdue" : "grace";
+  }
+  return "future";
+}
+
+function isUrgent(t, today) {
+  if (t.notify_daily) return true;
+  const status = taskDateStatus(t, today);
+  return status === "today" || status === "overdue";
+}
+
+function groupTasksByProject(tasks) {
+  const map = new Map();
+  for (const t of tasks) {
+    const key = t.project_id || "__none__";
+    if (!map.has(key)) {
+      map.set(key, {
+        key,
+        icon: t.projects ? t.projects.icon : "🗂️",
+        name: t.projects ? t.projects.name : "未分類",
+        color: t.projects ? t.projects.color : "#f0e0ea",
+        tasks: [],
+      });
+    }
+    map.get(key).tasks.push(t);
+  }
+  return Array.from(map.values());
+}
+
+function summarizeGroup(tasks, today) {
+  const parts = [`${tasks.length} 個`];
+  const todayCount = tasks.filter((t) => taskDateStatus(t, today) === "today").length;
+  const overdueCount = tasks.filter((t) => taskDateStatus(t, today) === "overdue").length;
+  const pinnedCount = tasks.filter((t) => t.notify_daily).length;
+  if (todayCount) parts.push(`🔥 ${todayCount}`);
+  if (overdueCount) parts.push(`⏰ ${overdueCount}`);
+  if (pinnedCount) parts.push(`📌 ${pinnedCount}`);
+  return parts.join(" · ");
+}
+
+function buildTaskCard(t, today) {
+  const card = document.createElement("div");
+  card.className = "task-card";
+  if (t.projects) {
+    card.style.borderLeftWidth = "5px";
+    card.style.borderLeftColor = t.projects.color;
+  }
+
+  if (editingTaskId === t.id) {
+    card.innerHTML = renderEditForm(t);
+    return card;
+  }
+
+  const badges = [];
+  if (t.projects) {
+    badges.push(
+      `<span class="badge badge-project" style="background:${escapeHtml(t.projects.color)}">${escapeHtml(
+        t.projects.icon
+      )} ${escapeHtml(t.projects.name)}</span>`
+    );
+  }
+  badges.push(
+    t.kind === "delegated"
+      ? `<span class="badge badge-delegated">📤 已轉交他人</span>`
+      : `<span class="badge badge-self">📌 自行跟進</span>`
+  );
+  if (t.follow_up_date) {
+    const status = taskDateStatus(t, today);
+    if (status === "today") {
+      badges.push(`<span class="badge badge-today">🔥 今日</span>`);
+    } else if (status === "overdue") {
+      badges.push(`<span class="badge badge-overdue">⏰ 逾期</span>`);
+    } else if (status === "grace") {
+      const graceEndDate = addDaysStr(t.follow_up_date, t.overdue_grace_days);
+      badges.push(`<span class="badge badge-grace">⏳ 寬限中(至 ${graceEndDate})</span>`);
+    } else {
+      badges.push(`<span class="badge badge-date">📅 ${t.follow_up_date}</span>`);
+    }
+  }
+  if (t.notify_daily) {
+    badges.push(`<span class="badge badge-pinned">📌 持續提醒</span>`);
+  }
+  if (t.status === "done") {
+    const doneDate = t.completed_at || dateOnly(t.updated_at);
+    badges.push(`<span class="badge badge-done-date">✅ 完成 ${doneDate}</span>`);
+  }
+
+  const actions = [];
+  const extraActions = [];
+  const linkHref = safeLinkHref(t.link);
+  if (linkHref) {
+    actions.push(
+      `<a class="btn btn-icon" href="${escapeHtml(linkHref)}" target="_blank" rel="noopener noreferrer">🔗 開啟連結</a>`
+    );
+  }
+  if (t.status === "active") {
+    actions.push(`<button class="btn btn-icon" data-action="done" data-id="${t.id}">✅ 完成</button>`);
+    extraActions.push(
+      `<button class="btn btn-icon" data-action="toggle-notify" data-id="${t.id}">${
+        t.notify_daily ? "🔕 取消提醒" : "🔔 持續提醒"
+      }</button>`
+    );
+    extraActions.push(`<button class="btn btn-icon" data-action="archive" data-id="${t.id}">🗄️ 封存</button>`);
+  } else if (t.status === "done") {
+    actions.push(`<button class="btn btn-icon" data-action="reopen" data-id="${t.id}">↩️ 重開</button>`);
+    extraActions.push(`<button class="btn btn-icon" data-action="archive" data-id="${t.id}">🗄️ 封存</button>`);
+  } else {
+    actions.push(`<button class="btn btn-icon" data-action="reopen" data-id="${t.id}">↩️ 重開</button>`);
+  }
+  extraActions.push(`<button class="btn btn-icon" data-action="edit" data-id="${t.id}">✏️ 編輯</button>`);
+  extraActions.push(`<button class="btn btn-icon" data-action="delete" data-id="${t.id}">🗑️ 刪除</button>`);
+  const menuOpen = expandedMenuIds.has(t.id);
+  actions.push(
+    `<button type="button" class="btn btn-icon" data-action="toggle-menu" data-id="${t.id}">${
+      menuOpen ? "▲ 收起" : "⋯ 更多"
+    }</button>`
+  );
+
+  const attachments = t.task_attachments || [];
+  const attachmentChips = attachments
+    .map(
+      (a) => `
+        <span class="attachment-chip">
+          ${attachmentIcon(a.file_name)} ${escapeHtml(a.file_name)}
+          <button type="button" class="attachment-mini-btn" data-action="open-attachment" data-path="${escapeHtml(
+            a.storage_path
+          )}" title="開啟附件">🔗</button>
+          <button type="button" class="attachment-mini-btn" data-action="delete-attachment" data-id="${a.id}" data-path="${escapeHtml(
+            a.storage_path
+          )}" title="刪除附件">✕</button>
+        </span>
+      `
+    )
+    .join("");
+
+  const uploadControl = `
+    <label class="attachment-upload-label">
+      📎 上傳附件
+      <input type="file" class="attachment-upload-input" data-task-id="${t.id}" accept=".pdf,.doc,.docx,.png,.jpg,.jpeg" hidden />
+    </label>
+  `;
+
+  card.innerHTML = `
+    <div class="task-top">
+      <span class="task-title">${escapeHtml(t.title)}</span>
+    </div>
+    <div class="task-badges">${badges.join("")}</div>
+    ${t.notes ? `<div class="task-notes">🖊️ ${escapeHtml(t.notes)}</div>` : ""}
+    ${attachmentChips ? `<div class="task-attachments">${attachmentChips}</div>` : ""}
+    <div class="task-actions">${actions.join("")}</div>
+    <div class="task-actions task-actions-extra${menuOpen ? "" : " hidden"}">${extraActions.join("")}${uploadControl}</div>
+  `;
+  return card;
+}
+
 function renderTasks(tasks) {
   if (tasks.length === 0) {
     taskListEl.innerHTML = '<p class="empty-hint">目前沒有項目 🌸</p>';
     return;
   }
   const today = todayStr();
+  const groups = groupTasksByProject(tasks);
+  groups.sort((a, b) => {
+    if (a.key === "__none__") return 1;
+    if (b.key === "__none__") return -1;
+    const aUrgent = a.tasks.some((t) => isUrgent(t, today));
+    const bUrgent = b.tasks.some((t) => isUrgent(t, today));
+    if (aUrgent !== bUrgent) return aUrgent ? -1 : 1;
+    return a.name.localeCompare(b.name, "zh-Hant");
+  });
+
   taskListEl.innerHTML = "";
-  for (const t of tasks) {
-    const card = document.createElement("div");
-    card.className = "task-card";
-    if (t.projects) {
-      card.style.borderLeftWidth = "5px";
-      card.style.borderLeftColor = t.projects.color;
+  for (const g of groups) {
+    if (!groupExpandState.has(g.key)) {
+      groupExpandState.set(g.key, g.tasks.some((t) => isUrgent(t, today)));
     }
+    const expanded = groupExpandState.get(g.key);
 
-    if (editingTaskId === t.id) {
-      card.innerHTML = renderEditForm(t);
-      taskListEl.appendChild(card);
-      continue;
-    }
+    const groupEl = document.createElement("div");
+    groupEl.className = "task-group" + (expanded ? " open" : "");
 
-    const badges = [];
-    if (t.projects) {
-      badges.push(
-        `<span class="badge badge-project" style="background:${escapeHtml(t.projects.color)}">${escapeHtml(
-          t.projects.icon
-        )} ${escapeHtml(t.projects.name)}</span>`
-      );
-    }
-    badges.push(
-      t.kind === "delegated"
-        ? `<span class="badge badge-delegated">📤 已轉交他人</span>`
-        : `<span class="badge badge-self">📌 自行跟進</span>`
-    );
-    if (t.follow_up_date) {
-      const graceEndDate = addDaysStr(t.follow_up_date, t.overdue_grace_days);
-      if (t.follow_up_date === today && t.status === "active") {
-        badges.push(`<span class="badge badge-today">🔥 今日</span>`);
-      } else if (t.status === "active" && graceEndDate < today) {
-        badges.push(`<span class="badge badge-overdue">⏰ 逾期</span>`);
-      } else if (t.status === "active" && t.follow_up_date < today) {
-        badges.push(`<span class="badge badge-grace">⏳ 寬限中(至 ${graceEndDate})</span>`);
-      } else {
-        badges.push(`<span class="badge badge-date">📅 ${t.follow_up_date}</span>`);
+    const headEl = document.createElement("div");
+    headEl.className = "task-group-head";
+    headEl.dataset.groupKey = g.key;
+    headEl.innerHTML = `
+      <span class="task-group-swatch" style="background:${escapeHtml(g.color)}"></span>
+      <span class="task-group-icon">${escapeHtml(g.icon)}</span>
+      <span class="task-group-name">${escapeHtml(g.name)}</span>
+      <span class="task-group-count">${summarizeGroup(g.tasks, today)}</span>
+      <span class="task-group-chevron">▶</span>
+    `;
+    groupEl.appendChild(headEl);
+
+    const bodyEl = document.createElement("div");
+    bodyEl.className = "task-group-body";
+    if (expanded) {
+      for (const t of g.tasks) {
+        bodyEl.appendChild(buildTaskCard(t, today));
       }
     }
-    if (t.notify_daily) {
-      badges.push(`<span class="badge badge-pinned">📌 持續提醒</span>`);
-    }
-    if (t.status === "done") {
-      const doneDate = t.completed_at || dateOnly(t.updated_at);
-      badges.push(`<span class="badge badge-done-date">✅ 完成 ${doneDate}</span>`);
-    }
+    groupEl.appendChild(bodyEl);
 
-    const actions = [];
-    const extraActions = [];
-    const linkHref = safeLinkHref(t.link);
-    if (linkHref) {
-      actions.push(
-        `<a class="btn btn-icon" href="${escapeHtml(linkHref)}" target="_blank" rel="noopener noreferrer">🔗 開啟連結</a>`
-      );
-    }
-    if (t.status === "active") {
-      actions.push(`<button class="btn btn-icon" data-action="done" data-id="${t.id}">✅ 完成</button>`);
-      extraActions.push(
-        `<button class="btn btn-icon" data-action="toggle-notify" data-id="${t.id}">${
-          t.notify_daily ? "🔕 取消提醒" : "🔔 持續提醒"
-        }</button>`
-      );
-      extraActions.push(`<button class="btn btn-icon" data-action="archive" data-id="${t.id}">🗄️ 封存</button>`);
-    } else if (t.status === "done") {
-      actions.push(`<button class="btn btn-icon" data-action="reopen" data-id="${t.id}">↩️ 重開</button>`);
-      extraActions.push(`<button class="btn btn-icon" data-action="archive" data-id="${t.id}">🗄️ 封存</button>`);
-    } else {
-      actions.push(`<button class="btn btn-icon" data-action="reopen" data-id="${t.id}">↩️ 重開</button>`);
-    }
-    extraActions.push(`<button class="btn btn-icon" data-action="edit" data-id="${t.id}">✏️ 編輯</button>`);
-    extraActions.push(`<button class="btn btn-icon" data-action="delete" data-id="${t.id}">🗑️ 刪除</button>`);
-    const menuOpen = expandedMenuIds.has(t.id);
-    actions.push(
-      `<button type="button" class="btn btn-icon" data-action="toggle-menu" data-id="${t.id}">${
-        menuOpen ? "▲ 收起" : "⋯ 更多"
-      }</button>`
-    );
-
-    const attachments = t.task_attachments || [];
-    const attachmentChips = attachments
-      .map(
-        (a) => `
-          <span class="attachment-chip">
-            ${attachmentIcon(a.file_name)} ${escapeHtml(a.file_name)}
-            <button type="button" class="attachment-mini-btn" data-action="open-attachment" data-path="${escapeHtml(
-              a.storage_path
-            )}" title="開啟附件">🔗</button>
-            <button type="button" class="attachment-mini-btn" data-action="delete-attachment" data-id="${a.id}" data-path="${escapeHtml(
-              a.storage_path
-            )}" title="刪除附件">✕</button>
-          </span>
-        `
-      )
-      .join("");
-
-    const uploadControl = `
-      <label class="attachment-upload-label">
-        📎 上傳附件
-        <input type="file" class="attachment-upload-input" data-task-id="${t.id}" accept=".pdf,.doc,.docx,.png,.jpg,.jpeg" hidden />
-      </label>
-    `;
-
-    card.innerHTML = `
-      <div class="task-top">
-        <span class="task-title">${escapeHtml(t.title)}</span>
-      </div>
-      <div class="task-badges">${badges.join("")}</div>
-      ${t.notes ? `<div class="task-notes">🖊️ ${escapeHtml(t.notes)}</div>` : ""}
-      ${attachmentChips ? `<div class="task-attachments">${attachmentChips}</div>` : ""}
-      <div class="task-actions">${actions.join("")}</div>
-      <div class="task-actions task-actions-extra${menuOpen ? "" : " hidden"}">${extraActions.join(
-      ""
-    )}${uploadControl}</div>
-    `;
-    taskListEl.appendChild(card);
+    taskListEl.appendChild(groupEl);
   }
 }
 
@@ -410,6 +497,14 @@ function escapeHtml(str) {
 }
 
 taskListEl.addEventListener("click", async (e) => {
+  const groupHead = e.target.closest(".task-group-head");
+  if (groupHead) {
+    const key = groupHead.dataset.groupKey;
+    groupExpandState.set(key, !groupExpandState.get(key));
+    renderTasks(tasksCache);
+    return;
+  }
+
   const btn = e.target.closest("button[data-action]");
   if (!btn) return;
   const id = btn.dataset.id;
