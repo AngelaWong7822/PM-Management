@@ -331,7 +331,7 @@ function renderTasks(tasks) {
     }
     if (t.status === "active") {
       actions.push(`<button class="btn btn-icon" data-action="done" data-id="${t.id}">✅ 完成</button>`);
-      actions.push(
+      extraActions.push(
         `<button class="btn btn-icon" data-action="toggle-notify" data-id="${t.id}">${
           t.notify_daily ? "🔕 取消提醒" : "🔔 持續提醒"
         }</button>`
@@ -369,21 +369,24 @@ function renderTasks(tasks) {
       )
       .join("");
 
+    const uploadControl = `
+      <label class="attachment-upload-label">
+        📎 上傳附件
+        <input type="file" class="attachment-upload-input" data-task-id="${t.id}" accept=".pdf,.doc,.docx,.png,.jpg,.jpeg" hidden />
+      </label>
+    `;
+
     card.innerHTML = `
       <div class="task-top">
         <span class="task-title">${escapeHtml(t.title)}</span>
       </div>
       <div class="task-badges">${badges.join("")}</div>
       ${t.notes ? `<div class="task-notes">🖊️ ${escapeHtml(t.notes)}</div>` : ""}
-      <div class="task-attachments">
-        ${attachmentChips}
-        <label class="attachment-upload-label">
-          📎 上傳附件
-          <input type="file" class="attachment-upload-input" data-task-id="${t.id}" accept=".pdf,.doc,.docx,.png,.jpg,.jpeg" hidden />
-        </label>
-      </div>
+      ${attachmentChips ? `<div class="task-attachments">${attachmentChips}</div>` : ""}
       <div class="task-actions">${actions.join("")}</div>
-      <div class="task-actions task-actions-extra${menuOpen ? "" : " hidden"}">${extraActions.join("")}</div>
+      <div class="task-actions task-actions-extra${menuOpen ? "" : " hidden"}">${extraActions.join(
+      ""
+    )}${uploadControl}</div>
     `;
     taskListEl.appendChild(card);
   }
