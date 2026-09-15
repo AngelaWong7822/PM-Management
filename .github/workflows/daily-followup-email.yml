@@ -2,8 +2,10 @@ name: Daily follow-up email
 
 on:
   schedule:
-    # 01:00 UTC = 09:00 香港時間 (全年冇 DST，唔使調)
-    - cron: "0 1 * * *"
+    # 01:05 UTC = 09:05 香港時間 (全年冇 DST，唔使調)
+    # 刻意唔用正點 (HH:00)，因為 GitHub Actions 喺正點嗰陣 scheduled workflow
+    # 有機會因為系統負載太高而被delay甚至skip咗
+    - cron: "5 1 * * *"
   workflow_dispatch: {}
 
 jobs:
