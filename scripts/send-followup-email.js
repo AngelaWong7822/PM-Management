@@ -31,6 +31,16 @@ function todayInHongKong() {
 async function main() {
   const today = todayInHongKong();
 
+  const { data: alreadySent } = await supabase
+    .from("email_log")
+    .select("sent_date")
+    .eq("sent_date", today)
+    .maybeSingle();
+  if (alreadySent) {
+    console.log(`Already sent today's email (${today}), skipping.`);
+    return;
+  }
+
   const { data: tasks, error } = await supabase
     .from("tasks")
     .select("title, notes, follow_up_date, notify_daily, overdue_grace_days, projects(icon, name)")
@@ -49,6 +59,18 @@ async function main() {
     return;
   }
 
+  // Claim 今日呢個slot：claim唔到即係另一個run啱啱好同時寄緊，
+  // 咁樣就算GitHub scheduled workflow喺同一個時間窗口內run多過一次都唔會重複寄
+  const { error: claimError } = await supabase.from("email_log").insert({ sent_date: today });
+  if (claimError) {
+    if (claimError.code === "23505") {
+      console.log(`Another run already claimed today's email (${today}), skipping.`);
+      return;
+    }
+    console.error("Failed to claim today's email slot:", claimError.message);
+    process.exit(1);
+  }
+
   const groups = groupByProject(activeTasks);
   const html = renderEmailHtml(today, groups);
   const text = renderEmailText(today, groups);
@@ -58,13 +80,19 @@ async function main() {
     auth: { user: GMAIL_USER, pass: GMAIL_APP_PASSWORD },
   });
 
-  await transporter.sendMail({
-    from: `"🐻 專案手帳" <${GMAIL_USER}>`,
-    to: RECIPIENT_EMAIL,
-    subject: `📋 今日 Follow-up 清單 (${today})`,
-    text,
-    html,
-  });
+  try {
+    await transporter.sendMail({
+      from: `"🐻 專案手帳" <${GMAIL_USER}>`,
+      to: RECIPIENT_EMAIL,
+      subject: `📋 今日 Follow-up 清單 (${today})`,
+      text,
+      html,
+    });
+  } catch (sendError) {
+    // 寄失敗嘅話釋放返個claim，等下一個排程時段可以再試
+    await supabase.from("email_log").delete().eq("sent_date", today);
+    throw sendError;
+  }
 
   console.log(
     `Email sent to ${RECIPIENT_EMAIL} with ${activeTasks.length} active tasks across ${groups.length} project group(s).`
